@@ -1,5 +1,6 @@
 ﻿using BookStorage.Data;
 using BookStorage.Models;
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,10 +11,12 @@ namespace BookStorage.Controllers;
 public class BooksController : ControllerBase
 {
     private readonly ApiDbContext _context;
+    private readonly IValidator<Book> _bookValidator;
 
-    public BooksController(ApiDbContext context)
+    public BooksController(ApiDbContext context, IValidator<Book> bookValidator)
     {
         _context = context;
+        _bookValidator = bookValidator;
     }
 
     [HttpGet]
@@ -35,10 +38,18 @@ public class BooksController : ControllerBase
     [Route("AddBook")]
     public async Task<IActionResult> AddBook(Book book)
     {
+        var validateResult = await _bookValidator.ValidateAsync(book);
+
+        if (!validateResult.IsValid)
+        {
+            return BadRequest(new
+                { error = validateResult.Errors.Select(x => new { x.AttemptedValue, x.ErrorMessage }) });
+        }
+
         _context.Books.Add(book);
 
         await _context.SaveChangesAsync();
-        return Ok();
+        return Ok("Книга создана, и всё отвалидировано!");
     }
 
     [HttpDelete]
